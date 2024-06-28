@@ -6,8 +6,8 @@ import jwt
 from fastapi import HTTPException
 
 
-JWT_SECRET = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5"
-              "MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")
+JWT_SECRET = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2Mj"
+              "M5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")
 KEY = bcrypt.gensalt()
 ALGORITHM = "HS256"
 
@@ -16,7 +16,7 @@ comments = []
 users = []
 
 
-def get_new_id(obj):
+async def get_new_id(obj):
     return len(obj) + 1
 
 
@@ -31,7 +31,7 @@ def email_check(email):
     return True
 
 
-def validate_jwt_token(headers):
+async def validate_jwt_token(headers):
     token = None
     if "Authorization" in headers:
         token = headers["Authorization"].split(" ")[0]
@@ -56,9 +56,13 @@ def validate_jwt_token(headers):
         raise HTTPException(status_code=401, detail="Token is invalid")
 
 
-def get_validated_user_id(headers):
-    decoded_payload = validate_jwt_token(headers)
+async def get_validated_user_id(headers):
+    decoded_payload = await validate_jwt_token(headers)
     if not decoded_payload:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
-    current_user = [u for u in users if u.email == decoded_payload["email"]]
-    return current_user[0].id
+
+    current_user = next((u for u in users if u.email == decoded_payload["email"]), None)
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return current_user.id
