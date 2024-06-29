@@ -1,35 +1,44 @@
+import logging
 from datetime import datetime, timedelta
 from typing import List
 
 import jwt
-from fastapi import FastAPI, HTTPException, requests
+from fastapi import FastAPI, HTTPException, requests, Depends
+from sqlalchemy.orm import Session
 
-from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, users, posts, comments, get_validated_user_id,
-                   get_new_id, validate_jwt_token)
-from models import (Post, PostCreate, CommentCreate, Comment, User, UserCreate, UserLogin, PostRemove, CommentRemove,
-                    PostEdit, CommentEdit)
+from db import Post, User, ContentBlocked, Comment, get_session
+from services import analyze_content, automatic_ai_answer
+from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
+                   insert_into_db, create_ai_user_in_db)
+from models import (PostCreate, CommentCreate, UserCreate, UserLogin, PostRemove, CommentRemove, PostEdit, CommentEdit,
+                    PostModel, ContentBlockedModel, CommentModel, UserModel)
 
 app = FastAPI()
+logging.basicConfig(filename='starnavi.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 @app.post("/create_users/")
-async def create_user(user: UserCreate):
+async def create_user(user: UserCreate, session: Session = Depends(get_session())):
+    if session.query(User).first() is None:
+        create_ai_user_in_db()
+
     if not email_check(user.email):
         raise HTTPException(status_code=401, detail=f"The email {user.email} is invalid")
-    email = next((u for u in users if u.email == user.email), None)
+
+    email = session.query(User).filter(User.email == user.email).first()
     if email:
         raise HTTPException(status_code=409, detail=f"User already exists with {user.email}")
-    user_id = await get_new_id(users)
+
     hashed_password = encryption(user.password)
-    new_user = User(id=user_id, name=user.name, email=user.email, password=hashed_password)
-    users.append(new_user)
+    new_user = User(name=user.name, email=user.email, password=hashed_password)
+    insert_into_db(new_user)
     return {"status_code": 200, "message": "success"}
 
 
 @app.post("/login/")
-async def login(user_login: UserLogin):
+async def login(user_login: UserLogin, session: Session = Depends(get_session())):
     hashed_password = encryption(user_login.password)
-    user = next((u for u in users if u.email == user_login.email and u.password == hashed_password), None)
+    user = session.query(User).filter(User.email == user_login.email and User.password == hashed_password).first()
     if not user:
         raise HTTPException(status_code=401, detail=f"The credentials are invalid")
 
@@ -42,103 +51,137 @@ async def login(user_login: UserLogin):
     return {"data": {"name": user.name, "token": token}, "status_code": 200, "message": f"{user.name} login successfully"}
 
 
-@app.post("/posts/", response_model=Post)
+@app.post("/posts/", response_model=PostModel)
 async def create_post(post: PostCreate, request: requests.Request):
     user_id = await get_validated_user_id(request.headers)
-    new_post_id = await get_new_id(posts)
-    new_post = Post(id=new_post_id, user_id=user_id, title=post.title, content=post.content,
-                    created_at=datetime.now())
-    posts.append(new_post)
+    if not analyze_content(post.content, post.title):
+        new_block_content = ContentBlocked(user_id=user_id, title=post.title, content=post.content)
+        insert_into_db(new_block_content)
+        raise HTTPException(status_code=403, detail="Post was blocked")
+
+    new_post = Post(user_id=user_id, title=post.title, content=post.content, is_answered=post.is_answered)
+    insert_into_db(new_post)
     return new_post
 
 
-@app.post("/edit_post/", response_model=List[Post])
-async def edit_post(edit: PostEdit, request: requests.Request):
+@app.post("/edit_post/", response_model=PostModel)
+async def edit_post(edit: PostEdit, request: requests.Request, session: Session = Depends(get_session())):
     data = await validate_jwt_token(request.headers)
     if not data:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    post = next((p for p in posts if p.id == edit.id), None)
+    post = session.query(Post).filter(Post.id == edit.id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    if not analyze_content(edit.content):
+        new_block_content = ContentBlocked(user_id=post.user_id, content=edit.content)
+        insert_into_db(new_block_content)
+        raise HTTPException(status_code=403, detail="Post content was blocked")
     post.content = edit.content
-    return posts
+    session.commit()
+    return post
 
 
-@app.post("/remove_post/", response_model=List[Post])
-async def remove_post(remove: PostRemove, request: requests.Request):
+@app.post("/remove_post/")
+async def remove_post(remove: PostRemove, request: requests.Request, session: Session = Depends(get_session())):
     data = await validate_jwt_token(request.headers)
     if not data:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    post = next((p for p in posts if p.id == remove.id), None)
+    post = session.query(Post).filter(Post.id == remove.id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    posts.remove(post)
-    return posts
+
+    session.delete(post)
+    session.commit()
+    return {"status_code": 200, "message": "Post was deleted"}
 
 
-@app.post("/comments/", response_model=Comment)
-async def create_comment(comment: CommentCreate, request: requests.Request):
+@app.post("/comments/", response_model=List[CommentModel])
+async def create_comment(comment: CommentCreate, request: requests.Request, session: Session = Depends(get_session())):
     user_id = await get_validated_user_id(request.headers)
-    post = next((p for p in posts if p.id == comment.post_id), None)
+
+    if not analyze_content(comment.content):
+        new_block_content = ContentBlocked(user_id=user_id, post_id=comment.post_id, content=comment.content)
+        insert_into_db(new_block_content)
+        raise HTTPException(status_code=403, detail="Comment was blocked")
+
+    post = session.query(Post).filter(Post.id == comment.post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    new_comment_id = await get_new_id(comments)
-    new_comment = Comment(id=new_comment_id, user_id=user_id, post_id=comment.post_id, content=comment.content,
-                          created_at=datetime.now())
-    comments.append(new_comment)
-    post.comments.append(new_comment)
-    return new_comment
+    new_comment = Comment(user_id=user_id, post_id=comment.post_id, content=comment.content)
+    insert_into_db(new_comment)
+
+    if post.is_answered:
+        response = automatic_ai_answer(post.content, post.title)
+        if response:
+            ai_comment = Comment(user_id=1, post_id=comment.post_id, content=response)
+            insert_into_db(ai_comment)
+            return [new_comment, ai_comment]
+    return [new_comment]
 
 
-@app.post("/edit_comment/", response_model=List[Comment])
-async def edit_comment(edit: CommentEdit, request: requests.Request):
+@app.post("/edit_comment/", response_model=CommentModel)
+async def edit_comment(edit: CommentEdit, request: requests.Request, session: Session = Depends(get_session())):
     data = await validate_jwt_token(request.headers)
     if not data:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    post = next((p for p in posts if p.id == edit.post_id), None)
+    post = session.query(Post).filter(Post.id == edit.post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    comment = next((c for c in comments if c.id == edit.comment_id), None)
+    comment = session.query(Comment).filter(Comment.id == edit.comment_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
+
+    if not analyze_content(edit.content):
+        new_block_content = ContentBlocked(user_id=post.user_id, post_id=post.id, content=edit.content)
+        insert_into_db(new_block_content)
+        raise HTTPException(status_code=403, detail="Comment was blocked")
 
     comment.content = edit.content
-    return comments
+    session.commit()
+    return comment
 
 
-@app.post("/remove_comment/", response_model=List[Comment])
-async def remove_comment(remove: CommentRemove, request: requests.Request):
+@app.post("/remove_comment/")
+async def remove_comment(remove: CommentRemove, request: requests.Request, session: Session = Depends(get_session())):
     data = await validate_jwt_token(request.headers)
     if not data:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    post = next((p for p in posts if p.id == remove.post_id), None)
+    post = session.query(Post).filter(Post.id == remove.post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    comment = next((c for c in comments if c.id == remove.comment_id), None)
+    comment = session.query(Comment).filter(Comment.id == remove.comment_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    comments.remove(comment)
-    return comments
+    session.delete(comment)
+    session.commit()
+    return {"status_code": 200, "message": "Comment was deleted"}
 
 
-@app.get("/posts/", response_model=List[Post])
-async def get_posts():
-    return posts
+# # Add jwt validation for these methods
+@app.get("/posts/", response_model=List[PostModel])
+async def get_posts(session: Session = Depends(get_session())):
+    return session.query(Post).all()
 
 
-@app.get("/comments/", response_model=List[Comment])
-async def get_comments():
-    return comments
+@app.get("/blocked/", response_model=List[ContentBlockedModel])
+async def get_blocked(session: Session = Depends(get_session())):
+    return session.query(ContentBlocked).all()
 
 
-@app.get("/users/", response_model=List[User])
-async def get_users():
-    return users
+@app.get("/comments/", response_model=List[CommentModel])
+async def get_comments(session: Session = Depends(get_session())):
+    return session.query(Comment).all()
+
+
+@app.get("/users/", response_model=List[UserModel])
+async def get_users(session: Session = Depends(get_session())):
+    return session.query(User).all()

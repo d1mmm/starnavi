@@ -1,27 +1,29 @@
+import logging
 import re
 from datetime import datetime
 
 import bcrypt
 import jwt
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
+from db import User, get_session
 
 JWT_SECRET = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2Mj"
               "M5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")
 KEY = bcrypt.gensalt()
 ALGORITHM = "HS256"
 
-posts = []
-comments = []
-users = []
-
-
-async def get_new_id(obj):
-    return len(obj) + 1
-
 
 def encryption(password):
     return bcrypt.hashpw(password.encode(), KEY).decode()
+
+
+def create_ai_user_in_db():
+    hashed = encryption("gemini123")
+    ai_user = User(name="Gemini", email="gemini@gmail.com", password=hashed)
+    insert_into_db(ai_user)
 
 
 def email_check(email):
@@ -29,6 +31,16 @@ def email_check(email):
     if not (re.fullmatch(regex, email)):
         return False
     return True
+
+
+def insert_into_db(obj, session: Session = Depends(get_session())):
+    try:
+        session.add(obj)
+        session.commit()
+    except SQLAlchemyError as e:
+        logging.error(f"Error occurred while executing SQL commands: {e}")
+        session.rollback()
+        raise HTTPException(status_code=502, detail=f'Bad Gateway {e}')
 
 
 async def validate_jwt_token(headers):
@@ -56,12 +68,13 @@ async def validate_jwt_token(headers):
         raise HTTPException(status_code=401, detail="Token is invalid")
 
 
-async def get_validated_user_id(headers):
+async def get_validated_user_id(headers, session: Session = Depends(get_session())):
     decoded_payload = await validate_jwt_token(headers)
     if not decoded_payload:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    current_user = next((u for u in users if u.email == decoded_payload["email"]), None)
+    current_user = session.query(User).filter(User.email == decoded_payload["email"]).first()
+
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 

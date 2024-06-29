@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
 
-class User(BaseModel):
+class UserModel(BaseModel):
     id: int
     name: str
     email: str
@@ -22,7 +22,7 @@ class UserLogin(BaseModel):
     password: str
 
 
-class Comment(BaseModel):
+class CommentModel(BaseModel):
     id: int
     user_id: int
     post_id: int
@@ -46,18 +46,20 @@ class CommentRemove(BaseModel):
     comment_id: int
 
 
-class Post(BaseModel):
+class PostModel(BaseModel):
     id: int
     user_id: int
     title: str
     content: str
-    comments: List[Comment] = []
+    comments: List[CommentModel] = []
     created_at: datetime
 
 
 class PostCreate(BaseModel):
     title: str
     content: str
+    is_answered: bool = False
+    time_for_ai_answer: int
 
 
 class PostEdit(BaseModel):
@@ -67,3 +69,12 @@ class PostEdit(BaseModel):
 
 class PostRemove(BaseModel):
     id: int
+
+
+class ContentBlockedModel(BaseModel):
+    id: int
+    user_id: int
+    post_id: Optional[int]
+    content: str
+    created_at: datetime
+    title: Optional[str]
