@@ -40,6 +40,11 @@ setup(
     packages=find_packages(exclude=['tests']),
     python_requires='>=3.6',
     install_requires=load_requirements('requirements.txt'),
+    entry_points={
+        'console_scripts': [
+            'run_alembic=starnavi.scripts.run_alembic:main',
+        ]
+    },
     # https://setuptools.readthedocs.io/en/latest/setuptools.html
     # #declaring-extras-optional-features-with-their-own-dependencies
     extras_require={'dev': load_requirements('requirements.dev.txt')},

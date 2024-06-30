@@ -1,13 +1,12 @@
-import logging
+import os
 
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
-from sqlalchemy_utils import database_exists, create_database
-
 
 from starnavi.mixin import HelperModelMixin
 
+
+DATABASE_URL = os.getenv("STARNAVI_DB_URL")
 
 class BaseModel(HelperModelMixin):
     pass
@@ -60,16 +59,17 @@ class ContentBlocked(Base):
     author = relationship("User", back_populates="blocked_contents")
 
 
-engine = create_engine('postgresql://postgres:1111@localhost:5432/starnavi')
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
-try:
-    if not database_exists(engine.url):
-        create_database(engine.url)
-        Base.metadata.create_all(engine)
-except SQLAlchemyError as e:
-    logging.error(e)
-    raise
+
+# try:
+#     if not database_exists(engine.url):
+#         create_database(engine.url)
+#         Base.metadata.create_all(engine)
+# except SQLAlchemyError as e:
+#     logging.error(e)
+#     raise
 
 
 def get_session():
