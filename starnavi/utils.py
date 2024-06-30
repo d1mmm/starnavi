@@ -4,11 +4,11 @@ from datetime import datetime
 
 import bcrypt
 import jwt
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from db import User, get_session
+from database.db import User, get_session
 
 JWT_SECRET = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2Mj"
               "M5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")
@@ -20,10 +20,10 @@ def encryption(password):
     return bcrypt.hashpw(password.encode(), KEY).decode()
 
 
-def create_ai_user_in_db():
+def create_ai_user_in_db(session: Session):
     hashed = encryption("gemini123")
     ai_user = User(name="Gemini", email="gemini@gmail.com", password=hashed)
-    insert_into_db(ai_user)
+    insert_into_db(ai_user, session)
 
 
 def email_check(email):
@@ -33,7 +33,7 @@ def email_check(email):
     return True
 
 
-def insert_into_db(obj, session: Session = Depends(get_session())):
+def insert_into_db(obj, session: Session):
     try:
         session.add(obj)
         session.commit()
@@ -68,7 +68,7 @@ async def validate_jwt_token(headers):
         raise HTTPException(status_code=401, detail="Token is invalid")
 
 
-async def get_validated_user_id(headers, session: Session = Depends(get_session())):
+async def get_validated_user_id(headers, session: Session):
     decoded_payload = await validate_jwt_token(headers)
     if not decoded_payload:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")

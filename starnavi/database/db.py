@@ -1,11 +1,19 @@
 import logging
 
-from sqlalchemy import create_engine, Column, Integer, DateTime, func, String, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
 
-Base = declarative_base()
+
+from starnavi.mixin import HelperModelMixin
+
+
+class BaseModel(HelperModelMixin):
+    pass
+
+
+Base = declarative_base(cls=BaseModel)
 
 
 class User(Base):
@@ -25,7 +33,6 @@ class Post(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_answered = Column(Boolean, default=False)
     owner = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post")
@@ -38,7 +45,6 @@ class Comment(Base):
     user_id = Column(Integer, ForeignKey('users.id'), unique=False)
     post_id = Column(Integer, ForeignKey('posts.id'))
     content = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     post = relationship("Post", back_populates="comments")
     author = relationship("User", back_populates="comments")
 
@@ -49,7 +55,6 @@ class ContentBlocked(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     post_id = Column(Integer, ForeignKey('posts.id'), nullable=True, default=None)
     content = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     title = Column(String)
     post = relationship("Post", back_populates="blocked_content")
     author = relationship("User", back_populates="blocked_contents")
