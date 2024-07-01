@@ -6,7 +6,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from starnavi.mixin import HelperModelMixin
 
 
-DATABASE_URL = os.getenv("STARNAVI_DB_URL")
+DATABASE_URL = os.getenv("STARNAVI_DB_URL") # postgresql://postgres:1111@localhost:5432/starnavi
+
 
 class BaseModel(HelperModelMixin):
     pass
@@ -32,7 +33,8 @@ class Post(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
-    is_answered = Column(Boolean, default=False)
+    should_be_answered = Column(Boolean, default=False)
+    time_for_ai_answer = Column(Integer, default=0)
     owner = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post")
     blocked_content = relationship("ContentBlocked", back_populates="post", uselist=False)
@@ -61,15 +63,6 @@ class ContentBlocked(Base):
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
-
-
-# try:
-#     if not database_exists(engine.url):
-#         create_database(engine.url)
-#         Base.metadata.create_all(engine)
-# except SQLAlchemyError as e:
-#     logging.error(e)
-#     raise
 
 
 def get_session():

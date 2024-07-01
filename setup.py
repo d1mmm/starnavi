@@ -27,6 +27,13 @@ setup(
     long_description_content_type='text/markdown',
     # git url
     url='',
+    include_package_data=True,
+    package_data={
+        '': ['requirements.txt', 'requirements.dev.txt'],
+    },
+    data_files=[
+        ('', ['requirements.txt', 'requirements.dev.txt']),
+    ],
     author='Dima Moroz',
     author_email='d1m.moroz007@gmail.com',
     classifiers=[

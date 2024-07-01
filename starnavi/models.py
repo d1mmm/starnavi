@@ -58,8 +58,8 @@ class PostModel(BaseModel):
 class PostCreate(BaseModel):
     title: str
     content: str
-    is_answered: bool = False
-    time_for_ai_answer: int
+    should_be_answered: Optional[bool] = False
+    time_for_ai_answer: Optional[int] = 0
 
 
 class PostEdit(BaseModel):

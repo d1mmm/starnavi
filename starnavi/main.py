@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 import jwt
+import uvicorn
 from fastapi import FastAPI, HTTPException, requests, Depends
 from sqlalchemy.orm import Session
 
@@ -59,7 +60,8 @@ async def create_post(post: PostCreate, request: requests.Request, session: Sess
         insert_into_db(new_block_content, session)
         raise HTTPException(status_code=403, detail="Post was blocked")
 
-    new_post = Post(user_id=user_id, title=post.title, content=post.content, is_answered=post.is_answered)
+    new_post = Post(user_id=user_id, title=post.title, content=post.content, should_be_answered=post.should_be_answered,
+                    time_for_ai_answer=post.time_for_ai_answer)
     insert_into_db(new_post, session)
     return new_post
 
@@ -114,7 +116,7 @@ async def create_comment(comment: CommentCreate, request: requests.Request, sess
     new_comment = Comment(user_id=user_id, post_id=comment.post_id, content=comment.content)
     insert_into_db(new_comment, session)
 
-    if post.is_answered:
+    if post.should_be_answered:
         response = automatic_ai_answer(post.content, post.title)
         ai_comment = Comment(user_id=1, post_id=comment.post_id, content=response)
         insert_into_db(ai_comment, session)
@@ -184,3 +186,7 @@ async def get_comments(session: Session = Depends(get_session)):
 @app.get("/users/", response_model=List[UserModel])
 async def get_users(session: Session = Depends(get_session)):
     return session.query(User).all()
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info")

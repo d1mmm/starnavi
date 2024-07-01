@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: starnavi_server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      STARNAVI_AI_ID: ${STARNAVI_AI_ID}
+      STARNAVI_DB_URL: ${STARNAVI_DB_URL}
+    volumes:
+      - ${CREDENTIALS_AI}:/app/service_account_key.json
+    depends_on:
+      - db
+      - alembic
+
+  alembic:
+    image: starnavi_server
+    environment:
+      STARNAVI_DB_URL: ${STARNAVI_DB_URL}
+      POSTGRES_DB: starnavi
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      - db
+    command: >
+      /bin/sh -c "sleep 1 && python3 scripts/run_alembic.py upgrade head"
+
+  db:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: starnavi
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5431:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
