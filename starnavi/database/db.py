@@ -1,12 +1,8 @@
-import os
-
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
+from starnavi.ENV import DATABASE_URL
 from starnavi.mixin import HelperModelMixin
-
-
-DATABASE_URL = os.getenv("STARNAVI_DB_URL") # postgresql://postgres:1111@localhost:5432/starnavi
 
 
 class BaseModel(HelperModelMixin):

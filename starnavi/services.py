@@ -1,13 +1,10 @@
-import os
-
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.oauth2 import service_account
 from vertexai.generative_models._generative_models import SafetyRating
 from vertexai.preview import generative_models
 
-PROJECT_AI_ID = os.getenv("STARNAVI_AI_ID")
-CREDENTIALS = os.getenv("CREDENTIALS_AI", default="/app/service_account_key.json")
+from starnavi.ENV import CREDENTIALS, PROJECT_AI_ID
 
 credentials = service_account.Credentials.from_service_account_file(CREDENTIALS)
 
@@ -67,4 +64,5 @@ def analyze_content(content, title=""):
 
 
 async def automatic_ai_answer(content, title=""):
-    return generate_answer(content, title).text
+    response = generate_answer(content, title)
+    return response

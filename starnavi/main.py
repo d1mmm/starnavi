@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from database.db import Post, User, ContentBlocked, Comment, get_session
 from services import analyze_content, automatic_ai_answer
+from starnavi.celery_app.tasks import send_automatic_reply
 from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
                    insert_into_db, create_ai_user_in_db)
 from models import (PostCreate, CommentCreate, UserCreate, UserLogin, PostRemove, CommentRemove, PostEdit, CommentEdit,
@@ -100,7 +101,7 @@ async def remove_post(remove: PostRemove, request: requests.Request, session: Se
     return {"status_code": 200, "message": "Post was deleted"}
 
 
-@app.post("/comments/", response_model=List[CommentModel])
+@app.post("/comments/", response_model=CommentModel)
 async def create_comment(comment: CommentCreate, request: requests.Request, session: Session = Depends(get_session)):
     user_id = await get_validated_user_id(request.headers, session)
 
@@ -119,9 +120,10 @@ async def create_comment(comment: CommentCreate, request: requests.Request, sess
     if post.should_be_answered:
         response = automatic_ai_answer(post.content, post.title)
         ai_comment = Comment(user_id=1, post_id=comment.post_id, content=response)
-        insert_into_db(ai_comment, session)
-        return [new_comment, ai_comment]
-    return [new_comment]
+        # insert_into_db(ai_comment, session)
+        send_automatic_reply.async_reply((ai_comment, session,), countdown=post.time_for_ai_answer)
+
+    return new_comment
 
 
 @app.post("/edit_comment/", response_model=CommentModel)
@@ -167,24 +169,35 @@ async def remove_comment(remove: CommentRemove, request: requests.Request, sessi
     return {"status_code": 200, "message": "Comment was deleted"}
 
 
-# # Add jwt validation for these methods
 @app.get("/posts/", response_model=List[PostModel])
-async def get_posts(session: Session = Depends(get_session)):
+async def get_posts(request: requests.Request, session: Session = Depends(get_session)):
+    data = await validate_jwt_token(request.headers)
+    if not data:
+        raise HTTPException(status_code=401, detail="Invalid Authentication token!")
     return session.query(Post).all()
 
 
 @app.get("/blocked/", response_model=List[ContentBlockedModel])
-async def get_blocked(session: Session = Depends(get_session)):
+async def get_blocked(request: requests.Request, session: Session = Depends(get_session)):
+    data = await validate_jwt_token(request.headers)
+    if not data:
+        raise HTTPException(status_code=401, detail="Invalid Authentication token!")
     return session.query(ContentBlocked).all()
 
 
 @app.get("/comments/", response_model=List[CommentModel])
-async def get_comments(session: Session = Depends(get_session)):
+async def get_comments(request: requests.Request, session: Session = Depends(get_session)):
+    data = await validate_jwt_token(request.headers)
+    if not data:
+        raise HTTPException(status_code=401, detail="Invalid Authentication token!")
     return session.query(Comment).all()
 
 
 @app.get("/users/", response_model=List[UserModel])
-async def get_users(session: Session = Depends(get_session)):
+async def get_users(request: requests.Request, session: Session = Depends(get_session)):
+    data = await validate_jwt_token(request.headers)
+    if not data:
+        raise HTTPException(status_code=401, detail="Invalid Authentication token!")
     return session.query(User).all()
 
 
