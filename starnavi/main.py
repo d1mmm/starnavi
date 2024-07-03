@@ -1,10 +1,12 @@
 import logging
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, timedelta, date
 from typing import List
 
 import jwt
 import uvicorn
-from fastapi import FastAPI, HTTPException, requests, Depends
+from fastapi import FastAPI, HTTPException, requests, Depends, Query
+from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
 
 from database.db import Post, User, ContentBlocked, Comment, get_session
@@ -13,7 +15,7 @@ from starnavi.celery_app.tasks import send_automatic_reply
 from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
                    insert_into_db, create_ai_user_in_db)
 from models import (PostCreate, CommentCreate, UserCreate, UserLogin, PostRemove, CommentRemove, PostEdit, CommentEdit,
-                    PostModel, ContentBlockedModel, CommentModel, UserModel)
+                    PostModel, ContentBlockedModel, CommentModel, UserModel, CommentAnalytics)
 
 app = FastAPI()
 logging.basicConfig(filename='starnavi.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -197,6 +199,51 @@ async def get_users(request: requests.Request, session: Session = Depends(get_se
     if not data:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
     return session.query(User).all()
+
+
+@app.get("/api/comments-daily-breakdown", response_model=List[CommentAnalytics])
+async def get_comments_daily_breakdown(
+        request: requests.Request,
+        date_from: date = Query(..., description="Start date in format YYYY-MM-DD"),
+        date_to: date = Query(..., description="End date in format YYYY-MM-DD"),
+        session: Session = Depends(get_session)
+):
+    data = await validate_jwt_token(request.headers)
+    if not data:
+        raise HTTPException(status_code=401, detail="Invalid Authentication token!")
+
+    created_comments = session.query(
+        func.date(Comment.created_at).label('date'),
+        func.count(Comment.id).label('count')
+    ).filter(
+        and_(Comment.created_at >= date_from, Comment.created_at <= date_to)
+    ).group_by(func.date(Comment.created_at)).all()
+
+    blocked_comments = session.query(
+        func.date(ContentBlocked.created_at).label('date'),
+        func.count(ContentBlocked.id).label('count')
+    ).filter(
+        and_(ContentBlocked.created_at >= date_from, ContentBlocked.created_at <= date_to,
+             ContentBlocked.post_id.isnot(None))
+    ).group_by(func.date(ContentBlocked.created_at)).all()
+
+    analytics = defaultdict(lambda: {"created": 0, "blocked": 0})
+
+    for comment in created_comments:
+        analytics[comment.date]["created"] += comment.count
+
+    for comment in blocked_comments:
+        analytics[comment.date]["blocked"] += comment.count
+
+    result = []
+    for comment_date, counts in analytics.items():
+        result.append(CommentAnalytics(
+            date=comment_date.strftime('%Y-%m-%d'),
+            created_comments=counts["created"],
+            blocked_comments=counts["blocked"]
+        ))
+
+    return result
 
 
 if __name__ == "__main__":

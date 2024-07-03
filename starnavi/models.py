@@ -78,3 +78,9 @@ class ContentBlockedModel(BaseModel):
     content: str
     created_at: datetime
     title: Optional[str]
+
+
+class CommentAnalytics(BaseModel):
+    date: str
+    created_comments: int
+    blocked_comments: int
