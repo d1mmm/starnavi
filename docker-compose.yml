@@ -11,6 +11,8 @@ services:
     environment:
       STARNAVI_AI_ID: ${STARNAVI_AI_ID}
       STARNAVI_DB_URL: ${STARNAVI_DB_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_BACKEND_URL: ${CELERY_BACKEND_URL}
     volumes:
       - ${CREDENTIALS_AI}:/app/service_account_key.json
     depends_on:
@@ -36,30 +38,35 @@ services:
     image: postgres:13
     restart: always
     environment:
+      STARNAVI_DB_URL: ${STARNAVI_DB_URL}
       POSTGRES_DB: starnavi
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5431:5432"
-#    volumes:
-#      - pgdata:/var/lib/postgresql/data
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:latest
     ports:
       - "6378:6379"
 
-  celery:
+  celery_app:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      CELERY_BROKER_URL: 'redis://redis:6379/0'
-      CELERY_RESULT_BACKEND: 'redis://redis:6379/0'
-    command: celery -A celery_app.app worker --loglevel=info
+      STARNAVI_AI_ID: ${STARNAVI_AI_ID}
+      STARNAVI_DB_URL: ${STARNAVI_DB_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_BACKEND_URL: ${CELERY_BACKEND_URL}
+    volumes:
+      - ${CREDENTIALS_AI}:/app/service_account_key.json
     depends_on:
       - redis
       - db
+    command: python3 celery_app/app.py
 
 volumes:
   pgdata:

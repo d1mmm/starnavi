@@ -1,3 +1,5 @@
+import logging
+
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.oauth2 import service_account
@@ -6,9 +8,15 @@ from vertexai.preview import generative_models
 
 from starnavi.ENV import CREDENTIALS, PROJECT_AI_ID
 
-credentials = service_account.Credentials.from_service_account_file(CREDENTIALS)
-
-vertexai.init(project=PROJECT_AI_ID, location="us-central1", credentials=credentials)
+try:
+    credentials = service_account.Credentials.from_service_account_file(CREDENTIALS)
+    vertexai.init(project=PROJECT_AI_ID, location="us-central1", credentials=credentials)
+except FileNotFoundError as e:
+    logging.error(f"Error: The credentials file was not found. {e}")
+except ValueError as e:
+    logging.error(f"Error: Invalid credentials or project ID. {e}")
+except Exception as e:
+    logging.error(f"An unexpected error occurred: {e}")
 
 model = GenerativeModel(model_name="gemini-1.5-flash")
 
@@ -63,6 +71,6 @@ def analyze_content(content, title=""):
     return True
 
 
-async def automatic_ai_answer(content, title=""):
+def automatic_ai_answer(content, title=""):
     response = generate_answer(content, title)
     return response

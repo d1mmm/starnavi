@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, requests, Depends
 from sqlalchemy.orm import Session
 
 from database.db import Post, User, ContentBlocked, Comment, get_session
-from services import analyze_content, automatic_ai_answer
+from services import analyze_content
 from starnavi.celery_app.tasks import send_automatic_reply
 from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
                    insert_into_db, create_ai_user_in_db)
@@ -50,7 +50,8 @@ async def login(user_login: UserLogin, session: Session = Depends(get_session)):
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
-    return {"data": {"name": user.name, "token": token}, "status_code": 200, "message": f"{user.name} login successfully"}
+    return {"data": {"name": user.name, "token": token}, "status_code": 200,
+            "message": f"{user.name} login successfully"}
 
 
 @app.post("/posts/", response_model=PostModel)
@@ -118,10 +119,7 @@ async def create_comment(comment: CommentCreate, request: requests.Request, sess
     insert_into_db(new_comment, session)
 
     if post.should_be_answered:
-        response = automatic_ai_answer(post.content, post.title)
-        ai_comment = Comment(user_id=1, post_id=comment.post_id, content=response)
-        # insert_into_db(ai_comment, session)
-        send_automatic_reply.async_reply((ai_comment, session,), countdown=post.time_for_ai_answer)
+        send_automatic_reply.apply_async((post.content, post.title, comment.post_id), countdown=post.time_for_ai_answer)
 
     return new_comment
 

@@ -21,12 +21,12 @@ def load_requirements(fname: str) -> list:
 
 setup(
     name='strarnavi',
-    version='0.0.3',
+    version='0.0.1',
     description='provides API to creates posts and comments',
     long_description=long_description,
     long_description_content_type='text/markdown',
     # git url
-    url='',
+    url='https://github.com/d1mmm/starnavi',
     include_package_data=True,
     package_data={
         '': ['requirements.txt', 'requirements.dev.txt'],
