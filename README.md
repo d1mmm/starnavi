@@ -20,6 +20,7 @@
 * PostgreSQL
 * SQLAlchemy
 * Alembic
+* Gemini AI
 * Redis
 * Celery
 * Docker
@@ -31,6 +32,8 @@
 
 * Go to the https://console.cloud.google.com/
 * Select your project or create a new one.
+* Go to the APIs & Services. Enabled APIs & services
+* Enable Vertex AI API
 * Navigate to the "IAM & Admin" section and then "Service Accounts".
 * Click on "Create Service Account".
 * Fill in the required details and click "Create".
@@ -43,7 +46,7 @@
     
    git clone https://github.com/yourusername/starnavi.git
      
-**Add environment veriables**
+**Add environment variables**
 
     export CREDENTIALS_AI=path to gcloud_credentials.json.
     export STARNAVI_AI_ID=project id
@@ -55,31 +58,40 @@
    
 **Build the package**
 
-    python3 setup.py sdist bdist_wheel 
+    python3 setup.py sdist bdist_wheel
+
+**Build the docker**
+
+    docker-compose --profile default build # Build server
+    docker-compose --profile tests build # Build tests
    
 # Run
 
 **Run starnavi/docker-compose.yml**
 
-    docker-compose up
-    or
-    docker-compose up -d
+    docker-compose --profile default up
+    docker-compose --profile tests up
+
+**Or run in detached mode**
+
+    docker-compose --profile default up -d
+    docker-compose --profile tests up -d
     
 # Example commands
 
-    curl -X POST "http://127.0.0.1:8000/create_users/" -H "Content-Type: application/json" -d '{"name": "Name", "email": "email@gmail.com", "password": "123"}'
-    curl -X POST "http://127.0.0.1:8000/login/" -H "Content-Type: application/json" -d '{"email": "email@gmail.com", "password": "123"}'
-    curl -X POST "http://127.0.0.1:8000/posts/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"title": "My first post", "content": "How are you ?", "should_be_answered": "True", "time_for_ai_answer": "10"}'
-    curl -X POST "http://127.0.0.1:8000/comments/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "content": "My first comment"}'
-    curl -X GET "http://127.0.0.1:8000/comments/" -H "Authorization: token_after_login"
-    curl -X GET "http://127.0.0.1:8000/api/comments-daily-breakdown?date_from=2024-07-02&date_to=2024-07-03" -H "Authorization: token_after_login"
-    curl -X POST "http://127.0.0.1:8000/edit_post/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"id": "1", "content": "Edited content post"}'
-    curl -X POST "http://127.0.0.1:8000/edit_comment/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "comment_id": "1", "content": "Edited comment"}'
-    curl -X GET "http://127.0.0.1:8000/users/" -H "Authorization: token_after_login"
-    curl -X GET "http://127.0.0.1:8000/posts/" -H "Authorization: token_after_login"
-    curl -X GET "http://127.0.0.1:8000/blocked/" -H "Authorization: token_after_login"
-    curl -X POST "http://127.0.0.1:8000/remove_comment/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "comment_id": "1"}'
-    curl -X POST "http://127.0.0.1:8000/remove_post/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"id": "1"}'
+    curl -X POST "http://0.0.0.0:8000/create_users/" -H "Content-Type: application/json" -d '{"name": "Name", "email": "email@gmail.com", "password": "123"}'
+    curl -X POST "http://0.0.0.0:8000/login/" -H "Content-Type: application/json" -d '{"email": "email@gmail.com", "password": "123"}'
+    curl -X POST "http://0.0.0.0:8000/posts/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"title": "My first post", "content": "How are you ?", "should_be_answered": "True", "time_for_ai_answer": "10"}'
+    curl -X POST "http://0.0.0.0:8000/comments/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "content": "My first comment"}'
+    curl -X GET "http://0.0.0.0:8000/comments/" -H "Authorization: token_after_login"
+    curl -X GET "http://0.0.0.0:8000/api/comments-daily-breakdown?date_from=2024-07-02&date_to=2024-07-03" -H "Authorization: token_after_login"
+    curl -X POST "http://0.0.0.0:8000/edit_post/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"id": "1", "content": "Edited content post"}'
+    curl -X POST "http://0.0.0.0:8000/edit_comment/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "comment_id": "1", "content": "Edited comment"}'
+    curl -X GET "http://0.0.0.0:8000/users/" -H "Authorization: token_after_login"
+    curl -X GET "http://0.0.0.0:8000/posts/" -H "Authorization: token_after_login"
+    curl -X GET "http://0.0.0.0:8000/blocked/" -H "Authorization: token_after_login"
+    curl -X POST "http://0.0.0.0:8000/remove_comment/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"post_id": "1", "comment_id": "1"}'
+    curl -X POST "http://0.0.0.0:8000/remove_post/" -H "Authorization: token_after_login" -H "Content-Type: application/json" -d '{"id": "1"}'
 
 
 # Contributing

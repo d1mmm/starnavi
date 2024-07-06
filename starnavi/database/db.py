@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
-from starnavi.ENV import DATABASE_URL
+from starnavi.config import DATABASE_URL
 from starnavi.mixin import HelperModelMixin
 
 

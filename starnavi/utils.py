@@ -8,8 +8,8 @@ from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from database.db import User
-from starnavi.ENV import KEY, JWT_SECRET, ALGORITHM
+from starnavi.database.db import User
+from starnavi.config import KEY, JWT_SECRET, ALGORITHM
 
 
 def encryption(password):
@@ -69,7 +69,7 @@ async def get_validated_user_id(headers, session: Session):
     if not decoded_payload:
         raise HTTPException(status_code=401, detail="Invalid Authentication token!")
 
-    current_user = session.query(User).filter(User.email == decoded_payload["email"]).first()
+    current_user = session.query(User).filter(User.email == str(decoded_payload["email"])).first()
 
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")

@@ -19,6 +19,8 @@ services:
       - db
       - redis
       - alembic
+    profiles:
+      - app
 
   alembic:
     build:
@@ -31,8 +33,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       - db
-    command: > 
-       /bin/sh -c "sleep 1 && python3 scripts/run_alembic.py upgrade head"
+    command: python3 scripts/run_alembic.py upgrade head
+    profiles:
+      - app
 
   db:
     image: postgres:13
@@ -44,13 +47,16 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5431:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    profiles:
+      - app
 
   redis:
     image: redis:latest
     ports:
       - "6378:6379"
+    profiles:
+      - app
+      - tests
 
   celery_app:
     build:
@@ -67,6 +73,27 @@ services:
       - redis
       - db
     command: python3 celery_app/app.py
+    profiles:
+      - app
+
+
+  tests:
+    build:
+      context: .
+      target: tests
+    environment:
+      STARNAVI_AI_ID: ${STARNAVI_AI_ID}
+      STARNAVI_DB_URL: ${STARNAVI_DB_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_BACKEND_URL: ${CELERY_BACKEND_URL}
+    volumes:
+      - ${CREDENTIALS_AI}:/app/service_account_key.json
+    depends_on:
+      - redis
+    profiles:
+      - tests
+    command: pytest tests
+
 
 volumes:
   pgdata:

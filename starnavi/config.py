@@ -11,7 +11,6 @@ ALGORITHM = "HS256"
 try:
     PROJECT_AI_ID = os.getenv("STARNAVI_AI_ID")
     CREDENTIALS = os.getenv("CREDENTIALS_AI", default="/app/service_account_key.json")
-    logging.info(CREDENTIALS)
     DATABASE_URL = os.getenv("STARNAVI_DB_URL")
     CELERY_BROKER = os.getenv("CELERY_BROKER_URL")
     CELERY_BACKEND = os.getenv("CELERY_BACKEND_URL")

@@ -9,13 +9,13 @@ from fastapi import FastAPI, HTTPException, requests, Depends, Query
 from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
 
-from database.db import Post, User, ContentBlocked, Comment, get_session
-from services import analyze_content
+from starnavi.database.db import Post, User, ContentBlocked, Comment, get_session
+from starnavi.services import analyze_content
 from starnavi.celery_app.tasks import send_automatic_reply
-from utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
-                   insert_into_db, create_ai_user_in_db)
-from models import (PostCreate, CommentCreate, UserCreate, UserLogin, PostRemove, CommentRemove, PostEdit, CommentEdit,
-                    PostModel, ContentBlockedModel, CommentModel, UserModel, CommentAnalytics)
+from starnavi.utils import (email_check, encryption, ALGORITHM, JWT_SECRET, get_validated_user_id, validate_jwt_token,
+                            insert_into_db, create_ai_user_in_db)
+from starnavi.models import (PostCreate, CommentCreate, UserCreate, UserLogin, PostRemove, CommentRemove, PostEdit,
+                             CommentEdit, PostModel, ContentBlockedModel, CommentModel, UserModel, CommentAnalytics)
 
 app = FastAPI()
 logging.basicConfig(filename='starnavi.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
